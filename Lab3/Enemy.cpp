@@ -1,65 +1,66 @@
 #include "enemy.h"
 
-Enemy::Enemy(sf::Color t_colour, sf::Vector2f t_position):
+Enemy::Enemy(sf::Color t_colour, sf::Vector2f t_position, EnemyType t_type):
 	m_position{t_position},
 	MAX_SPEED{1.5f},
 	MAX_ROTATION{5.0f},
-	m_scale{0.25f},
-	m_orientation{0}
+	m_scale{0.5f},
+	m_orientation{0},
+	m_arriveStopRadius{75},
+	m_type{t_type}
 {
 	if (!m_texture.loadFromFile("ASSETS\\IMAGES\\Spaceship.png"))
 	{
 		throw "Error Loading Enemy Texture";
 	}
+	if (!m_font.loadFromFile("ASSETS\\FONTS\\ariblk.ttf"))
+	{
+		throw "Error Loading Enemy Font";
+	}
+	m_arriveSlowRadius = m_arriveStopRadius * 3;
 	m_sprite.setTexture(m_texture);
 	m_size = sf::Vector2f(m_sprite.getGlobalBounds().width, m_sprite.getGlobalBounds().height);
 	m_sprite.setOrigin(m_size.x / 2, m_size.y / 2);
 	m_sprite.setPosition(m_position);
 	m_sprite.setScale(m_scale, m_scale);
 	m_sprite.setColor(t_colour);
+	setUpText();
 }
-//
-//void Enemy::update(MovementData t_data)
-//{
-//	m_velocity = t_data.getVelocity() * MAX_SPEED;
-//	m_sprite.setRotation(t_data.getAngle());
-//	m_position += m_velocity;
-//	screenWrap();
-//	m_sprite.setPosition(m_position);
-//}
 
-void Enemy::update(sf::Vector2f t_playerPosition, EnemyType t_type)
+void Enemy::update(sf::Vector2f t_playerPosition)
 {
-	switch (t_type)
+	switch (m_type)
 	{
-	case EnemyType::Seek:
-		seek(t_playerPosition);
-		break;
-	case EnemyType::Arrive:
-		arrive(t_playerPosition);
-		break;
-	case EnemyType::Wander:
-		wander(t_playerPosition);
-		break;
-	case EnemyType::Flee:
-		flee(t_playerPosition);
-		break;
-	default:
-		break;
-	}
-
+		case EnemyType::Seek:
+			seek(t_playerPosition);
+			break;
+		case EnemyType::Arrive:
+			arrive(t_playerPosition);
+			break;
+		case EnemyType::Wander:
+			wander(t_playerPosition);
+			break;
+		case EnemyType::Flee:
+			flee(t_playerPosition);
+			break;
+		default:
+			break;
+	}/*
+	m_position += m_velocity;
+	m_sprite.setPosition(m_position);
+	m_sprite.setRotation(m_orientation);
+	m_enemyTypeText.setPosition(m_position.x + 20, m_position.y);*/
 }
-
-
 
 void Enemy::render(sf::RenderWindow & t_window)
 {
 	t_window.draw(m_sprite);
+	t_window.draw(m_enemyTypeText);
 }
 
-MovementData Enemy::getMovementData()
+sf::Vector2f Enemy::getPosition()
 {
-	return MovementData(m_velocity, m_sprite.getRotation(), m_position);
+	return m_position;
 }
 
 void Enemy::screenWrap()
@@ -78,54 +79,85 @@ void Enemy::screenWrap()
 void Enemy::seek(sf::Vector2f t_playerPosition)
 {
 	m_velocity = t_playerPosition - m_position;
-	m_velocity = VectorOperations::normalise(m_velocity);
+	m_velocity = Operations::normalise(m_velocity);
 	m_velocity *= MAX_SPEED;
-	m_orientation = Behaviour::getNewOrientation(m_orientation, m_velocity);
+	m_orientation = Operations::getNewOrientation(m_orientation, m_velocity);
 }
 
 void Enemy::flee(sf::Vector2f t_playerPosition)
 {
 	m_velocity = m_position - t_playerPosition;
-	m_velocity = VectorOperations::normalise(m_velocity);
+	m_velocity = Operations::normalise(m_velocity);
 	m_velocity *= MAX_SPEED;
-	m_orientation = Behaviour::getNewOrientation(m_orientation, m_velocity);
+	m_orientation = Operations::getNewOrientation(m_orientation, m_velocity);
 }
 
 void Enemy::arrive(sf::Vector2f t_playerPosition)
 {
-	float radius = 150;
+	m_velocity = t_playerPosition - m_position;
+	float magnitude = Operations::getMagnitude(m_velocity);
 
-	float stopRadius = 150;
-	float slowRadius = stopRadius * 3;
-
-
-	sf::Vector2f newVelocity;
-	float orientation;
-
-	newVelocity = t_playerPosition - m_position;
-
-	float magnitude = VectorOperations::magnitude
-	if (VectorOperations::magnitude(newVelocity) < radius)
+	if (magnitude < m_arriveSlowRadius)
 	{
-		newVelocity = sf::Vector2f(0, 0);
+		if (magnitude < m_arriveStopRadius)
+		{
+			m_velocity = sf::Vector2f();
+		}
+		else
+		{
+			if (MAX_SPEED < magnitude)
+			{
+				m_velocity = Operations::normalise(m_velocity);
+				m_velocity* MAX_SPEED;
+			}
+			m_velocity /= (magnitude / m_arriveSlowRadius);
+		}
 	}
-	else if ()
+	else
 	{
-
+		if (MAX_SPEED < magnitude)
+		{
+			m_velocity = Operations::normalise(m_velocity);
+			m_velocity* MAX_SPEED;
+		}
 	}
+	m_orientation = Operations::getNewOrientation(m_orientation, m_velocity);
 }
 
 void Enemy::wander(sf::Vector2f t_playerPosition)
 {
-	float maxRotation = 5.0f;
-	seek(t_playerPosition);
-	m_velocity / MAX_SPEED;
+	m_velocity = t_playerPosition - m_position;
+	m_velocity = Operations::normalise(m_velocity);
+	m_orientation = Operations::getNewOrientation(m_orientation, m_velocity);
 
 	std::mt19937 range;
 	range.seed(std::random_device()());
 	std::uniform_int_distribution<int> randomNumber(-1, 1);
 
-	m_orientation += maxRotation * randomNumber(range);
-	m_velocity = Behaviour::getNewVelocity(m_orientation, m_velocity);
+	m_orientation += MAX_ROTATION * randomNumber(range);
+	m_velocity = Operations::getNewVelocity(m_orientation, m_velocity) / Operations::getMagnitude(m_velocity);
 	m_velocity* MAX_SPEED;
+}
+
+void Enemy::setUpText()
+{
+	m_enemyTypeText.setFont(m_font);
+	m_enemyTypeText.setCharacterSize(32);
+	switch (m_type)
+	{
+	case EnemyType::Seek:
+		m_enemyTypeText.setString("SEEK");
+		break;
+	case EnemyType::Arrive:
+		m_enemyTypeText.setString("ARRIVE");
+		break;
+	case EnemyType::Wander:
+		m_enemyTypeText.setString("WANDER");
+		break;
+	case EnemyType::Flee:
+		m_enemyTypeText.setString("FLEE");
+		break;
+	default:
+		break;
+	}
 }

@@ -17,12 +17,7 @@ private:
 	sf::RenderWindow m_window;
 	Player m_player;
 
-	Enemy seek;
-	Enemy flee;
-	Enemy wander;
-	Enemy arrive;
-
-	std::vector<Enemy> enemys;
+	std::vector<Enemy*> m_enemys;
 
 };
 

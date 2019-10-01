@@ -1,13 +1,14 @@
 #include "Game.h"
 
-Game::Game():
-	seek{sf::Color::Green, sf::Vector2f(100,100)},
-	flee{sf::Color::Blue, sf::Vector2f(SCREEN_SIZE::WIDTH / 2, SCREEN_SIZE::HEIGHT / 2)},
-	wander{sf::Color::Yellow, sf::Vector2f(100, 700)},
-	arrive{sf::Color::Magenta , sf::Vector2f(700, 100)}
+Game::Game()
 {
 	m_window.create(sf::VideoMode{ SCREEN_SIZE::WIDTH, SCREEN_SIZE::HEIGHT }, "Lab 1");
+	m_enemys.push_back(new Enemy(sf::Color::Magenta, sf::Vector2f(100, 100), EnemyType::Seek));
+	m_enemys.push_back(new Enemy(sf::Color::Green, sf::Vector2f(100, SCREEN_SIZE::HEIGHT - 100), EnemyType::Arrive));
+	m_enemys.push_back(new Enemy(sf::Color::Blue, sf::Vector2f(SCREEN_SIZE::WIDTH - 100, 100), EnemyType::Wander));
+	m_enemys.push_back(new Enemy(sf::Color::Yellow, sf::Vector2f(SCREEN_SIZE::WIDTH / 2, SCREEN_SIZE::HEIGHT / 2), EnemyType::Flee));
 }
+
 
 void Game::run()
 {
@@ -43,22 +44,23 @@ void Game::processEvents()
 
 void Game::update(sf::Time t_deltaTime)
 {
+	std::vector<sf::Vector2f> enemyPositions;
 
-	seek.update(Behaviour::Seek(m_player.getMovementData(), seek.getMovementData()));
-	flee.update(Behaviour::Flee(m_player.getMovementData(), flee.getMovementData()));
-	arrive.update(Behaviour::Arrive(m_player.getMovementData(), arrive.getMovementData(), 150 , 0.5, 1.5  ));
-	wander.update(Behaviour::Wander(m_player.getMovementData(), wander.getMovementData(), 5));
-
-	m_player.update();
+	for (int index = 0; index < m_enemys.size(); index++)
+	{
+		m_enemys[index]->update(m_player.getPosition());
+		enemyPositions.push_back(m_enemys[index]->getPosition());
+	}
+	m_player.update(enemyPositions);
 }
 
 void Game::render()
 {
 	m_window.clear(sf::Color(0,255,255,255));
-	seek.render(m_window);
-	flee.render(m_window);
-	wander.render(m_window);
-	arrive.render(m_window);
+	for (int index = 0; index < m_enemys.size(); index++)
+	{
+		m_enemys[index]->render(m_window);
+	}
 	m_player.render(m_window);
 	m_window.display();
 }

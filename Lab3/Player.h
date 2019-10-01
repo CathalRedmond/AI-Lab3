@@ -1,40 +1,37 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include "ScreenSize.h"
-#include "Behaviour.h"
+#include "Operations.h"
+#include "ConeOfVision.h"
 
 class Player
 {
 public:
 	Player();
-	void update();
+	void update(std::vector<sf::Vector2f> enemyPositions);
 	void handleInput(sf::Event t_event);
 	void render(sf::RenderWindow & t_window);
-	MovementData getMovementData();
+	sf::Vector2f getPosition();
 private:
-	void move();
 	void screenWrap();
-	double getAngleOfRotation();
 	void updatePlayerRotation();
+	void updateKeyPressed(bool& t_keyStatus, sf::Event t_event);
 
-	sf::Sprite m_playerSprite;
-	sf::Texture m_playerTexture;
-	sf::Vector2f m_playerPosition;
-	sf::Vector2f m_playerVelocity;
-	sf::Vector2f m_playerSize;
-	float maxSpeed;
-	double angleOfOrientation;
+	sf::Sprite m_sprite;
+	sf::Texture m_texture;
+	sf::Vector2f m_position;
+	sf::Vector2f m_velocity;
+	sf::Vector2f m_size;
+	const float MAX_SPEED;
+	float m_orientation;
+	float m_scale;
 
-	const double PI;
+	bool m_speedUp;
+	bool m_speedDown;
+	bool m_moveLeft;
+	bool m_moveRight;
+	bool collisionDetected;
 
-	bool speedUp;
-	bool speedDown;
-	bool moveLeft;
-	bool moveRight;
-
-	void updateKeyPressed(bool& keyStatus, sf::Event t_event);
-
-	float playerScale = 0.5f;
-
+	ConeOfVision cone;
 };
 

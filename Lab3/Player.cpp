@@ -1,82 +1,95 @@
 #include "Player.h"
 
 Player::Player():
-	PI{ 3.14159 },
-	speedUp{ false },
-	speedDown{ false },
-	moveLeft{ false },
-	moveRight{ false }
-	
+	m_speedUp{ false },
+	m_speedDown{ false },
+	m_moveLeft{ false },
+	m_moveRight{ false },
+	MAX_SPEED{25},
+	m_velocity{sf::Vector2f(4,4)},
+	m_position{sf::Vector2f(SCREEN_SIZE::WIDTH /2 , SCREEN_SIZE::HEIGHT / 2)},
+	m_orientation{Operations::getNewOrientation(0, m_velocity)},
+	m_scale{0.5f},
+
+	cone{ m_position, m_orientation, 25 , 250}
 {
-	if (!m_playerTexture.loadFromFile("ASSETS\\IMAGES\\Spaceship.png"))
+	if (!m_texture.loadFromFile("ASSETS\\IMAGES\\Spaceship.png"))
 	{
 		throw "Error Loading Player Texture";
 	}
-	m_playerSprite.setTexture(m_playerTexture);
-	m_playerSize = sf::Vector2f(m_playerSprite.getGlobalBounds().width, m_playerSprite.getGlobalBounds().height);
-	m_playerSprite.setOrigin(m_playerSize.x / 2, m_playerSize.y / 2);
-	m_playerVelocity = sf::Vector2f(4, 4);
-	m_playerPosition = sf::Vector2f(SCREEN_SIZE::WIDTH - 100, SCREEN_SIZE::HEIGHT - 100);
-	m_playerSprite.setPosition(m_playerPosition);
-	angleOfOrientation = getAngleOfRotation();
-	m_playerSprite.setRotation(angleOfOrientation);
-	maxSpeed = 25;
-	m_playerSprite.setScale(playerScale, playerScale);
+	m_sprite.setTexture(m_texture);
+	m_size = sf::Vector2f(m_sprite.getGlobalBounds().width, m_sprite.getGlobalBounds().height);
+	m_sprite.setOrigin(m_size.x / 2, m_size.y / 2);
+	m_sprite.setPosition(m_position);
+	m_sprite.setRotation(m_orientation);
+	m_sprite.setScale(m_scale, m_scale);
+	collisionDetected = false;
 }
 
-void Player::update()
+void Player::update(std::vector<sf::Vector2f> enemyPositions)
 {
-	if (speedUp)
+	if (m_speedUp)
 	{
 		sf::Vector2f newVelocity;
-		double magnitude = sqrt(std::pow(m_playerVelocity.x, 2) + std::pow(m_playerVelocity.y, 2));
-		bool isMagnitudeValid = magnitude > 0;
+		float magnitude = Operations::getMagnitude(m_velocity);
 
-		newVelocity.x = isMagnitudeValid ? m_playerVelocity.x / magnitude : std::cos(angleOfOrientation * (PI / 180));
-		newVelocity.y = isMagnitudeValid ? m_playerVelocity.y / magnitude : std::sin(angleOfOrientation * (PI / 180));
+		newVelocity = magnitude > 0 ? Operations::normalise(m_velocity) :
+		sf::Vector2f(std::cos(Operations::degreesToRadians(m_orientation)), std::sin(Operations::degreesToRadians(m_orientation)));
 
-		m_playerVelocity += newVelocity;
-		if (maxSpeed < sqrt(std::pow(m_playerVelocity.x, 2) + std::pow(m_playerVelocity.y, 2)))
-			m_playerVelocity = newVelocity * maxSpeed;
+		m_velocity += newVelocity;
+
+		if (MAX_SPEED < Operations::getMagnitude(m_velocity))
+			m_velocity = newVelocity * MAX_SPEED;
 	}
-	else if (speedDown)
+	else if (m_speedDown)
 	{
-		m_playerVelocity *= 0.9f;
-		if (0.1f > sqrt(std::pow(m_playerVelocity.x, 2) + std::pow(m_playerVelocity.y, 2)))
-			m_playerVelocity = sf::Vector2f(0, 0);
+		m_velocity *= 0.9f;
+		if (0.1f > Operations::getMagnitude(m_velocity))
+			m_velocity = sf::Vector2f();
 	}
-	if (moveLeft)
+	if (m_moveLeft)
 	{
-		angleOfOrientation -= 2;
+		m_orientation -= 2;
 		updatePlayerRotation();
 	}
-	else if (moveRight)
+	else if (m_moveRight)
 	{
-		angleOfOrientation += 2;
+		m_orientation += 2;
 		updatePlayerRotation();
 	}
-	m_playerPosition += m_playerVelocity;
+	m_position += m_velocity;
 	screenWrap();
-	m_playerSprite.setPosition(m_playerPosition);
+	m_sprite.setPosition(m_position);
+
+	cone.updateCone(m_position, m_orientation, collisionDetected);
+	collisionDetected = false;
+
+	for (size_t i = 0; i < enemyPositions.size(); i++)
+	{
+		if (cone.collisionDetection(enemyPositions[i], m_velocity))
+		{
+			collisionDetected = true;
+		}
+	}
 }
 
 void Player::handleInput(sf::Event t_event)
 {
 	if (t_event.key.code == sf::Keyboard::W || t_event.key.code == sf::Keyboard::Up)
 	{
-		updateKeyPressed(speedUp, t_event);
+		updateKeyPressed(m_speedUp, t_event);
 	}
 	else if (t_event.key.code == sf::Keyboard::S || t_event.key.code == sf::Keyboard::Down)
 	{
-		updateKeyPressed(speedDown, t_event);
+		updateKeyPressed(m_speedDown, t_event);
 	}
 	if (t_event.key.code == sf::Keyboard::A || t_event.key.code == sf::Keyboard::Left)
 	{
-		updateKeyPressed(moveLeft, t_event);
+		updateKeyPressed(m_moveLeft, t_event);
 	}
 	else if (t_event.key.code == sf::Keyboard::D || t_event.key.code == sf::Keyboard::Right)
 	{
-		updateKeyPressed(moveRight, t_event);
+		updateKeyPressed(m_moveRight, t_event);
 	}
 }
 
@@ -91,38 +104,32 @@ void Player::updateKeyPressed(bool& t_keyStatus, sf::Event t_event)
 
 void Player::screenWrap()
 {
-	if (m_playerPosition.x < -m_playerSize.x / 2)
-		m_playerPosition.x = SCREEN_SIZE::WIDTH;
-	else if (m_playerPosition.x > SCREEN_SIZE::WIDTH + m_playerSize.x / 2)
-		m_playerPosition.x = 0;
+	if (m_position.x < -m_size.x / 2)
+		m_position.x = SCREEN_SIZE::WIDTH;
+	else if (m_position.x > SCREEN_SIZE::WIDTH + m_size.x / 2)
+		m_position.x = 0;
 
-	if (m_playerPosition.y < -m_playerSize.y / 2)
-		m_playerPosition.y = SCREEN_SIZE::HEIGHT;
-	else if (m_playerPosition.y > SCREEN_SIZE::HEIGHT + m_playerSize.y / 2)
-		m_playerPosition.y = 0;
+	if (m_position.y < -m_size.y / 2)
+		m_position.y = SCREEN_SIZE::HEIGHT;
+	else if (m_position.y > SCREEN_SIZE::HEIGHT + m_size.y / 2)
+		m_position.y = 0;
 }
 
 void Player::render(sf::RenderWindow & t_window)
 {
-	t_window.draw(m_playerSprite);
+	t_window.draw(m_sprite);
+	cone.render(t_window);
 }
 
-MovementData Player::getMovementData()
+sf::Vector2f Player::getPosition()
 {
-	return MovementData(m_playerVelocity, angleOfOrientation, m_playerPosition);
-}
-
-double Player::getAngleOfRotation()
-{
-	float angleInRadians = std::atan2((m_playerVelocity.y), m_playerVelocity.x);
-	angleInRadians = angleInRadians;
-	return (angleInRadians * (180 / 3.14));
+	return m_position;
 }
 
 void Player::updatePlayerRotation()
 {
-	if (angleOfOrientation < 0) angleOfOrientation = 360;
-	else if (angleOfOrientation > 360) angleOfOrientation = 0;
-	m_playerSprite.setRotation(angleOfOrientation);
-	m_playerVelocity = Behaviour::getNewVelocity(angleOfOrientation, m_playerVelocity);
+	if (m_orientation < 0) m_orientation = 360;
+	else if (m_orientation > 360) m_orientation = 0;
+	m_sprite.setRotation(m_orientation);
+	m_velocity = Operations::getNewVelocity(m_orientation, m_velocity);
 }
